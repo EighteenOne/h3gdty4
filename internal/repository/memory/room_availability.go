@@ -23,9 +23,9 @@ func generateKey(hotelID, roomID string, date time.Time) string {
 	return hotelID + "_" + roomID + "_" + date.Format("2006-01-02")
 }
 
-func (r *InMemoryAvailabilityRepository) GetAvailabilities(ctx context.Context, hotelID, roomID string, from, to time.Time) ([]domain.RoomAvailability, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+func (r *InMemoryAvailabilityRepository) GetAvailabilitiesForUpdate(ctx context.Context, hotelID, roomID string, from, to time.Time) ([]domain.RoomAvailability, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	var availabilities []domain.RoomAvailability
 	for d := from; !d.After(to); d = d.AddDate(0, 0, 1) {

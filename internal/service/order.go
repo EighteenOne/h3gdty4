@@ -4,6 +4,7 @@ import (
 	"applicationDesignTest/internal/domain"
 	log "applicationDesignTest/internal/logger"
 	"context"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -13,7 +14,7 @@ type orderRepository interface {
 }
 
 type availabilityRepository interface {
-	GetAvailabilities(ctx context.Context, hotelID, roomID string, from, to time.Time) ([]domain.RoomAvailability, error)
+	GetAvailabilitiesForUpdate(ctx context.Context, hotelID, roomID string, from, to time.Time) ([]domain.RoomAvailability, error)
 	UpdateAvailabilities(ctx context.Context, availabilities []domain.RoomAvailability) error
 }
 
@@ -37,9 +38,13 @@ func NewOrderService(orderRepo orderRepository, availabilityRepo availabilityRep
 }
 
 func (s *OrderService) CreateOrder(ctx context.Context, order *domain.Order) error {
+	if err := validateOrder(order); err != nil {
+		return fmt.Errorf("invalid order: %w", err)
+	}
+
 	return s.txManager.RunInTransaction(ctx, func(txCtx context.Context) error {
 
-		availabilities, err := s.availabilityRepo.GetAvailabilities(
+		availabilities, err := s.availabilityRepo.GetAvailabilitiesForUpdate(
 			txCtx,
 			order.HotelID,
 			order.RoomID,
@@ -78,4 +83,26 @@ func (s *OrderService) CreateOrder(ctx context.Context, order *domain.Order) err
 
 		return nil
 	})
+}
+
+func validateOrder(order *domain.Order) error {
+	if order == nil {
+		return errors.New("order cannot be nil")
+	}
+	if order.HotelID == "" {
+		return errors.New("hotel ID is required")
+	}
+	if order.RoomID == "" {
+		return errors.New("room ID is required")
+	}
+	if order.UserEmail == "" {
+		return errors.New("user email is required")
+	}
+	if order.From.IsZero() || order.To.IsZero() {
+		return errors.New("invalid dates")
+	}
+	if order.From.After(order.To) {
+		return errors.New("start date must be before end date")
+	}
+	return nil
 }
